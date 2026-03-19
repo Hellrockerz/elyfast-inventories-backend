@@ -5,6 +5,11 @@ export default {
   out: "./src/database/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL || "postgres://postgres:41d9e2aa7cbc4ee79f2c71f4741a4be1@localhost:5432/elyfast_inventory",
+    host: process.env.DB_HOST || "localhost",
+    port: Number(process.env.DB_PORT) || 5432,
+    user: process.env.DB_USER || "postgres",
+    password: process.env.DB_PASSWORD || "41d9e2aa7cbc4ee79f2c71f4741a4be1",
+    database: process.env.DB_NAME || "elyfast_inventory",
+    ssl: "require",
   },
 } satisfies Config;

@@ -3,7 +3,8 @@ import { Pool } from "pg";
 import * as schema from "./schema";
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:41d9e2aa7cbc4ee79f2c71f4741a4be1@localhost:5432/elyfast_inventory",
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
 });
 
 pool.on("error", (err) => {
