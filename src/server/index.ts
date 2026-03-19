@@ -12,20 +12,22 @@ const fastify = Fastify({
       process.env.NODE_ENV === "production"
         ? undefined
         : {
-            target: "pino-pretty",
-            options: {
-              colorize: true,
-              translateTime: "HH:MM:ss Z",
-              ignore: "pid,hostname",
-            },
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            translateTime: "HH:MM:ss Z",
+            ignore: "pid,hostname",
           },
+        },
   },
 });
 
 async function bootstrap() {
   try {
     // Plugins
-    await fastify.register(cors);
+    fastify.register(cors, {
+      origin: ["https://inventories.elyfast.com"]
+    });
     await fastify.register(helmet);
     await fastify.register(dbPlugin);
     await fastify.register(jwt, {
@@ -37,7 +39,7 @@ async function bootstrap() {
 
     const port = Number(process.env.PORT) || 3005;
     await fastify.listen({ port, host: "0.0.0.0" });
-    
+
     console.log(`Server listening on http://localhost:${port}`);
   } catch (err) {
     fastify.log.error(err);
