@@ -1,5 +1,5 @@
 {
-  "id": "65a792be-fba7-4a6d-9406-01c65764bdcb",
+  "id": "3305c594-eaad-4191-a0be-b00e8997b4ea",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -16,8 +16,7 @@
         },
         "status": {
           "name": "status",
-          "type": "status",
-          "typeSchema": "public",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "'active'"
@@ -126,8 +125,7 @@
         },
         "status": {
           "name": "status",
-          "type": "status",
-          "typeSchema": "public",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "'active'"
@@ -238,8 +236,7 @@
         },
         "status": {
           "name": "status",
-          "type": "status",
-          "typeSchema": "public",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "'active'"
@@ -361,8 +358,7 @@
         },
         "status": {
           "name": "status",
-          "type": "status",
-          "typeSchema": "public",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "'active'"
@@ -392,6 +388,12 @@
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
+        },
+        "owner_name": {
+          "name": "owner_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
         },
         "owner_id": {
           "name": "owner_id",
@@ -438,8 +440,7 @@
         },
         "status": {
           "name": "status",
-          "type": "status",
-          "typeSchema": "public",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "'active'"
@@ -540,10 +541,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "sync_status": {
-          "name": "sync_status",
-          "type": "status",
-          "typeSchema": "public",
+        "status": {
+          "name": "status",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "'active'"
