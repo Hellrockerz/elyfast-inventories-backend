@@ -5,7 +5,7 @@ import * as schema from "./schema";
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: process.env.NODE_ENV === "DEV" ? false : { rejectUnauthorized: false },
 });
 
 pool.on("error", (err) => {

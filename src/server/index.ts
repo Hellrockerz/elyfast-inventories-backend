@@ -26,7 +26,7 @@ async function bootstrap() {
   try {
     // Plugins
     fastify.register(cors, {
-      origin: ["https://inventories.elyfast.com"]
+      origin: ["https://inventories.elyfast.com", "http://localhost:3000"]
     });
     await fastify.register(helmet);
     await fastify.register(dbPlugin);
