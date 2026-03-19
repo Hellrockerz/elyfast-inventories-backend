@@ -13,7 +13,7 @@ export const shops = pgTable("shops", {
 
 export const items = pgTable("items", {
   ...standardFields,
-  shopId: text("shop_id").references(() => shops.id).notNull(),
+  shopId: integer("shop_id").references(() => shops.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   sku: varchar("sku", { length: 50 }),
   barcode: varchar("barcode", { length: 50 }),
@@ -28,7 +28,7 @@ export const items = pgTable("items", {
 
 export const invoices = pgTable("invoices", {
   ...standardFields,
-  shopId: text("shop_id").references(() => shops.id).notNull(),
+  shopId: integer("shop_id").references(() => shops.id).notNull(),
   invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
   customerName: varchar("customer_name", { length: 255 }),
   customerPhone: varchar("customer_phone", { length: 20 }),
@@ -40,8 +40,8 @@ export const invoices = pgTable("invoices", {
 
 export const invoiceItems = pgTable("invoice_items", {
   ...standardFields,
-  invoiceId: text("invoice_id").references(() => invoices.id).notNull(),
-  itemId: text("item_id").references(() => items.id).notNull(),
+  invoiceId: integer("invoice_id").references(() => invoices.id).notNull(),
+  itemId: integer("item_id").references(() => items.id).notNull(),
   itemName: varchar("item_name", { length: 255 }).notNull(),
   quantity: decimal("quantity", { precision: 12, scale: 3 }).notNull(),
   unitPrice: decimal("unit_price", { precision: 12, scale: 2 }).notNull(),
@@ -50,8 +50,8 @@ export const invoiceItems = pgTable("invoice_items", {
 
 export const stockMovements = pgTable("stock_movements", {
   ...standardFields,
-  shopId: text("shop_id").references(() => shops.id).notNull(),
-  itemId: text("item_id").references(() => items.id).notNull(),
+  shopId: integer("shop_id").references(() => shops.id).notNull(),
+  itemId: integer("item_id").references(() => items.id).notNull(),
   quantityChange: decimal("quantity_change", { precision: 12, scale: 3 }).notNull(), // +ve for restock, -ve for sale
   reason: varchar("reason", { length: 100 }).notNull(), // sale, restock, return, adjustment, expiry
   referenceId: text("reference_id"), // e.g. invoice_id or adjustment_id
@@ -59,11 +59,11 @@ export const stockMovements = pgTable("stock_movements", {
 
 export const syncLogs = pgTable("sync_logs", {
   ...standardFields,
-  shopId: text("shop_id").references(() => shops.id).notNull(),
+  shopId: integer("shop_id").references(() => shops.id).notNull(),
   deviceId: varchar("device_id", { length: 255 }).notNull(),
   operationType: varchar("operation_type", { length: 50 }).notNull(), // create_item, update_stock, etc.
   resourceType: varchar("resource_type", { length: 50 }).notNull(), // items, invoices, etc.
-  resourceId: text("resource_id").notNull(),
+  resourceId: text("resource_id").notNull(), // Stores the client UUID
   status: text("status").default("active").notNull(), // active here means pending/confirmed
   syncToken: text("sync_token"), // to prevent duplicates
 });

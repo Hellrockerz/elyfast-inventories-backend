@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
-import { db } from "../database/index"; // I need to setup the db instance
-import { items, invoices, invoiceItems, stockMovements, syncLogs } from "../database/schema";
+import { shops, items, invoices, invoiceItems, stockMovements, syncLogs } from "../database/schema";
 import { eq, sql } from "drizzle-orm";
+import crypto from "node:crypto";
 
 interface SyncOperation {
   id: string;
@@ -14,22 +14,64 @@ interface SyncOperation {
 }
 
 export async function syncRoutes(fastify: FastifyInstance) {
-  fastify.post("/", async (request, reply) => {
-    const op = request.body as SyncOperation;
-    const { id, operationType, resourceType, payload, shopId } = op;
+  // Helper to resolve Shop UUID to Integer ID
+  const getShopIntId = async (uuid: string) => {
+    if (!uuid) return null;
+    // If uuid is numeric, it might already be the IntId
+    if (!isNaN(Number(uuid)) && uuid.length < 10) return Number(uuid);
+    
+    const shop = await fastify.db.select().from(shops).where(eq(shops.uuid, uuid)).limit(1);
+    return shop[0]?.id || null;
+  };
+
+  // Helper to resolve Item UUID to Integer ID
+  const getItemIntId = async (uuid: string) => {
+    if (!uuid) return null;
+    if (!isNaN(Number(uuid)) && uuid.length < 10) return Number(uuid);
+    const item = await fastify.db.select().from(items).where(eq(items.uuid, uuid)).limit(1);
+    return item[0]?.id || null;
+  };
+
+  fastify.get("/full-state", async (request, reply) => {
+    const { shopId: shopUuid } = request.query as { shopId: string };
+    if (!shopUuid) return reply.status(400).send({ error: "shopId is required" });
 
     try {
-      // Basic idempotency check
-      const existing = await fastify.db.select().from(syncLogs).where(eq(syncLogs.resourceId, id)).limit(1);
+      const shopId = await getShopIntId(shopUuid);
+      if (!shopId) return reply.status(404).send({ error: "Shop not found" });
+
+      const allItems = await fastify.db.select().from(items).where(eq(items.shopId, shopId));
+      return {
+        items: allItems,
+        timestamp: Date.now()
+      };
+    } catch (err) {
+      fastify.log.error(err);
+      return reply.status(500).send({ error: "Failed to fetch full state" });
+    }
+  });
+
+  fastify.post("/", async (request, reply) => {
+    const op = request.body as SyncOperation;
+    const { id: uuid, operationType, resourceType, payload, shopId: shopUuid } = op;
+
+    try {
+      const shopId = await getShopIntId(shopUuid);
+      if (!shopId) return reply.status(404).send({ status: "error", message: "Shop not found" });
+
+      // Basic idempotency check using the client UUID
+      const existing = await fastify.db.select().from(syncLogs).where(eq(syncLogs.resourceId, uuid)).limit(1);
       if (existing.length > 0) {
-        return { status: "already_synced", id };
+        return { status: "already_synced", id: uuid };
       }
+
+      let serverId: number | undefined;
 
       await fastify.db.transaction(async (tx) => {
         if (operationType === 'create_item') {
-          await tx.insert(items).values({
-            id: payload.id,
-            shopId: payload.shopId,
+          const inserted = await tx.insert(items).values({
+            uuid: payload.id, 
+            shopId: shopId,
             name: payload.name,
             sku: payload.sku,
             barcode: payload.barcode,
@@ -42,35 +84,40 @@ export async function syncRoutes(fastify: FastifyInstance) {
             status: payload.status || 'active',
             createdAt: new Date(payload.createdAt || Date.now()),
             updatedAt: new Date(),
-          });
+          }).returning({ id: items.id });
+          serverId = inserted[0].id;
         } else if (operationType === 'update_item') {
-          await tx.update(items)
-            .set({ 
-              name: payload.name,
-              sku: payload.sku,
-              barcode: payload.barcode,
-              purchasePrice: payload.purchasePrice?.toString(),
-              sellingPrice: payload.sellingPrice?.toString(),
-              stockQuantity: payload.stockQuantity?.toString(),
-              lowStockThreshold: payload.lowStockThreshold?.toString(),
-              expiryDate: payload.expiryDate ? new Date(payload.expiryDate) : null,
-              batchNumber: payload.batchNumber,
-              status: payload.status,
-              updatedAt: new Date() 
-            })
-            .where(eq(items.id, payload.id));
+          const itemIntId = await getItemIntId(payload.id);
+          if (itemIntId) {
+            await tx.update(items)
+              .set({ 
+                name: payload.name,
+                sku: payload.sku,
+                barcode: payload.barcode,
+                purchasePrice: payload.purchasePrice?.toString(),
+                sellingPrice: payload.sellingPrice?.toString(),
+                stockQuantity: payload.stockQuantity?.toString(),
+                lowStockThreshold: payload.lowStockThreshold?.toString(),
+                expiryDate: payload.expiryDate ? new Date(payload.expiryDate) : null,
+                batchNumber: payload.batchNumber,
+                status: payload.status,
+                updatedAt: new Date() 
+              })
+              .where(eq(items.id, itemIntId));
+            serverId = itemIntId;
+          }
         } else if (operationType === 'delete_item') {
-          await tx.update(items)
-            .set({ 
-              status: 'deleted', 
-              updatedAt: new Date() 
-            })
-            .where(eq(items.id, payload.id));
+          const itemIntId = await getItemIntId(payload.id);
+          if (itemIntId) {
+            await tx.update(items)
+              .set({ status: 'deleted', updatedAt: new Date() })
+              .where(eq(items.id, itemIntId));
+          }
         } else if (operationType === 'create_invoice') {
           const { invoice, items: billItems } = payload;
-          await tx.insert(invoices).values({
-            id: invoice.id,
-            shopId: invoice.shopId,
+          const insertedInvoice = await tx.insert(invoices).values({
+            uuid: invoice.id,
+            shopId: shopId,
             invoiceNumber: invoice.invoiceNumber,
             customerName: invoice.customerName,
             customerPhone: invoice.customerPhone,
@@ -81,16 +128,21 @@ export async function syncRoutes(fastify: FastifyInstance) {
             status: invoice.status || 'active',
             createdAt: new Date(invoice.createdAt || Date.now()),
             updatedAt: new Date(),
-          });
+          }).returning({ id: invoices.id });
+          
+          const invIntId = insertedInvoice[0].id;
+          serverId = invIntId;
 
           for (const item of billItems) {
-            const itemId = item.itemId || item.id;
+            const itemIntId = await getItemIntId(item.itemId || item.id);
+            if (!itemIntId) continue;
+
             const qty = item.quantity || item.billingQuantity || 0;
             
             await tx.insert(invoiceItems).values({
-              id: item.id || crypto.randomUUID(), 
-              invoiceId: invoice.id,
-              itemId: itemId,
+              uuid: item.id,
+              invoiceId: invIntId,
+              itemId: itemIntId,
               itemName: item.itemName || item.name,
               quantity: qty.toString(),
               unitPrice: (item.unitPrice || item.sellingPrice || 0).toString(),
@@ -100,64 +152,65 @@ export async function syncRoutes(fastify: FastifyInstance) {
               updatedAt: new Date(),
             });
             
-            // Update stock level on server
             await tx.update(items)
               .set({
                 stockQuantity: sql`${items.stockQuantity} - ${qty.toString()}`,
                 updatedAt: new Date()
               })
-              .where(eq(items.id, itemId));
+              .where(eq(items.id, itemIntId));
 
-            // Record stock movement
             await tx.insert(stockMovements).values({
-              id: crypto.randomUUID(),
+              uuid: crypto.randomUUID(),
               shopId,
-              itemId: itemId,
+              itemId: itemIntId,
               quantityChange: (-qty).toString(),
               reason: 'sale',
-              referenceId: invoice.id,
+              referenceId: invIntId.toString(),
               status: 'active',
               createdAt: new Date(),
               updatedAt: new Date(),
             });
           }
         } else if (operationType === 'update_stock') {
-          await tx.insert(stockMovements).values({
-            id: payload.id || crypto.randomUUID(),
-            shopId: payload.shopId || shopId,
-            itemId: payload.itemId,
-            quantityChange: payload.quantityChange?.toString(),
-            reason: payload.reason || 'adjustment',
-            referenceId: payload.referenceId,
-            status: payload.status || 'active',
-            createdAt: new Date(payload.createdAt || Date.now()),
-            updatedAt: new Date(),
-          });
+          const itemIntId = await getItemIntId(payload.itemId);
+          if (itemIntId) {
+            const insertedMovement = await tx.insert(stockMovements).values({
+              uuid: payload.id,
+              shopId: shopId,
+              itemId: itemIntId,
+              quantityChange: payload.quantityChange?.toString(),
+              reason: payload.reason || 'adjustment',
+              referenceId: payload.referenceId?.toString(),
+              status: payload.status || 'active',
+              createdAt: new Date(payload.createdAt || Date.now()),
+              updatedAt: new Date(),
+            }).returning({ id: stockMovements.id });
 
-          // Also update the item's current stock
-          await tx.update(items)
-            .set({
-              stockQuantity: sql`${items.stockQuantity} + ${payload.quantityChange?.toString()}`,
-              updatedAt: new Date()
-            })
-            .where(eq(items.id, payload.itemId));
+            serverId = insertedMovement[0].id;
+
+            await tx.update(items)
+              .set({
+                stockQuantity: sql`${items.stockQuantity} + ${payload.quantityChange?.toString()}`,
+                updatedAt: new Date()
+              })
+              .where(eq(items.id, itemIntId));
+          }
         }
 
-        // Log the sync
         await tx.insert(syncLogs).values({
-          id: crypto.randomUUID(),
+          uuid: crypto.randomUUID(),
           shopId,
           deviceId: op.deviceId,
           operationType,
           resourceType,
-          resourceId: id,
+          resourceId: uuid,
           status: 'active',
           createdAt: new Date(),
           updatedAt: new Date(),
         });
       });
 
-      return { status: "success", id };
+      return { status: "success", id: uuid, serverId };
     } catch (err) {
       fastify.log.error(err);
       return reply.status(500).send({ status: "error", message: "Sync failed" });

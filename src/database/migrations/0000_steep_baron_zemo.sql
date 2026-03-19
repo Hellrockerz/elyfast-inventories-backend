@@ -1,11 +1,12 @@
 CREATE TABLE "invoice_items" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" serial PRIMARY KEY NOT NULL,
+	"uuid" text,
 	"status" text DEFAULT 'active' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp,
-	"invoice_id" text NOT NULL,
-	"item_id" text NOT NULL,
+	"invoice_id" integer NOT NULL,
+	"item_id" integer NOT NULL,
 	"item_name" varchar(255) NOT NULL,
 	"quantity" numeric(12, 3) NOT NULL,
 	"unit_price" numeric(12, 2) NOT NULL,
@@ -13,12 +14,13 @@ CREATE TABLE "invoice_items" (
 );
 --> statement-breakpoint
 CREATE TABLE "invoices" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" serial PRIMARY KEY NOT NULL,
+	"uuid" text,
 	"status" text DEFAULT 'active' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp,
-	"shop_id" text NOT NULL,
+	"shop_id" integer NOT NULL,
 	"invoice_number" varchar(50) NOT NULL,
 	"customer_name" varchar(255),
 	"customer_phone" varchar(20),
@@ -29,12 +31,13 @@ CREATE TABLE "invoices" (
 );
 --> statement-breakpoint
 CREATE TABLE "items" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" serial PRIMARY KEY NOT NULL,
+	"uuid" text,
 	"status" text DEFAULT 'active' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp,
-	"shop_id" text NOT NULL,
+	"shop_id" integer NOT NULL,
 	"name" varchar(255) NOT NULL,
 	"sku" varchar(50),
 	"barcode" varchar(50),
@@ -47,7 +50,8 @@ CREATE TABLE "items" (
 );
 --> statement-breakpoint
 CREATE TABLE "shops" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" serial PRIMARY KEY NOT NULL,
+	"uuid" text,
 	"status" text DEFAULT 'active' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
@@ -61,25 +65,27 @@ CREATE TABLE "shops" (
 );
 --> statement-breakpoint
 CREATE TABLE "stock_movements" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" serial PRIMARY KEY NOT NULL,
+	"uuid" text,
 	"status" text DEFAULT 'active' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp,
-	"shop_id" text NOT NULL,
-	"item_id" text NOT NULL,
+	"shop_id" integer NOT NULL,
+	"item_id" integer NOT NULL,
 	"quantity_change" numeric(12, 3) NOT NULL,
 	"reason" varchar(100) NOT NULL,
 	"reference_id" text
 );
 --> statement-breakpoint
 CREATE TABLE "sync_logs" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" serial PRIMARY KEY NOT NULL,
+	"uuid" text,
 	"status" text DEFAULT 'active' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp,
-	"shop_id" text NOT NULL,
+	"shop_id" integer NOT NULL,
 	"device_id" varchar(255) NOT NULL,
 	"operation_type" varchar(50) NOT NULL,
 	"resource_type" varchar(50) NOT NULL,

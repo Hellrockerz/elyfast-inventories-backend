@@ -15,7 +15,8 @@ export async function authRoutes(fastify: FastifyInstance) {
       if (shop.length > 0) {
         return { 
           exists: true, 
-          shopId: shop[0].id, 
+          shopId: shop[0].uuid || shop[0].id.toString(), // Return UUID for frontend consistency
+          serverId: shop[0].id,
           shopName: shop[0].name,
           ownerName: shop[0].ownerName 
         };
@@ -37,9 +38,9 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const id = uuidv4();
-      await db.insert(shops).values({
-        id,
+      const uuid = uuidv4();
+      const inserted = await db.insert(shops).values({
+        uuid: uuid,
         ownerId,
         name,
         ownerName,
@@ -49,9 +50,9 @@ export async function authRoutes(fastify: FastifyInstance) {
         status: "active",
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
+      }).returning({ id: shops.id });
 
-      return { status: "success", shopId: id };
+      return { status: "success", shopId: uuid, serverId: inserted[0].id };
     } catch (err) {
       fastify.log.error(err);
       return reply.status(500).send({ status: "error", message: "Failed to register shop" });
