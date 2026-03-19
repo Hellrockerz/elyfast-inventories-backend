@@ -4,7 +4,7 @@ import { Pool } from "pg";
 import * as schema from "./schema";
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:u02BzlnMUEr6R6IEZj4b@elyfast-inventory-db.cp2ewegkofq6.ap-south-1.rds.amazonaws.com:5432/elyfast-inventory-db",
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 
