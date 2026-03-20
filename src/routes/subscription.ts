@@ -4,6 +4,22 @@ import { shops, promoCodes, payments } from "../database/schema";
 import { eq, sql } from "drizzle-orm";
 import crypto from "node:crypto";
 
+// UroPay API configuration
+const UROPAY_API_URL = "https://api.uropay.me";
+const UROPAY_API_KEY = process.env.UROPAY_API_KEY || "";
+const UROPAY_SECRET = process.env.UROPAY_SECRET || "";
+
+function getUroPayAuthHeaders() {
+  const hashedSecret = crypto.createHash("sha512").update(UROPAY_SECRET).digest("hex");
+  return {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    "X-API-KEY": UROPAY_API_KEY,
+    Authorization: `Bearer ${hashedSecret}`,
+    "Accept-Encoding": "gzip, deflate, br",
+  };
+}
+
 export async function subscriptionRoutes(fastify: FastifyInstance) {
   /**
    * GET /status/:shopId
@@ -138,8 +154,8 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /create-order
-   * Creates a payment order for UroPay UPI integration
-   * Monthly plan: ₹129/month
+   * Creates a payment order via UroPay API (/order/generate)
+   * Returns QR code + UPI string for the customer to pay ₹129
    */
   fastify.post("/create-order", async (request, reply) => {
     const { shopId } = request.body as { shopId: string };
@@ -163,10 +179,37 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ status: "error", message: "Shop not found" });
       }
 
-      // Generate unique transaction ID
-      const transactionId = `ELY-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      // Generate merchant order ID
+      const merchantOrderId = `ELY-${shop.id}-${Date.now()}`;
+
+      // Call UroPay /order/generate API
+      let uroPayData: any = null;
+      if (UROPAY_API_KEY && UROPAY_SECRET) {
+        try {
+          const response = await fetch(`${UROPAY_API_URL}/order/generate`, {
+            method: "POST",
+            headers: getUroPayAuthHeaders(),
+            body: JSON.stringify({
+              amount: 12900, // Amount in paise (₹129 = 12900 paise)
+              merchantOrderId,
+              transactionNote: `Elyfast Monthly Subscription - Shop #${shop.id}`,
+              customerName: shop.ownerName || shop.name,
+            }),
+          });
+          const result = await response.json();
+          if (result.code === 200 && result.data) {
+            uroPayData = result.data;
+          } else {
+            fastify.log.warn("UroPay order/generate failed:" + JSON.stringify(result));
+          }
+        } catch (apiErr) {
+          fastify.log.error("UroPay API call failed:" + JSON.stringify(apiErr));
+        }
+      }
 
       // Record the pending payment
+      const transactionId = uroPayData?.uroPayOrderId || merchantOrderId;
+
       await db.insert(payments).values({
         shopId: shop.id,
         transactionId,
@@ -182,9 +225,16 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
       return {
         status: "success",
         transactionId,
+        merchantOrderId,
         amount: 129,
         currency: "INR",
         shopId: shop.uuid || shop.id.toString(),
+        // UroPay data (QR code, UPI string) if available
+        uroPayOrderId: uroPayData?.uroPayOrderId || null,
+        qrCode: uroPayData?.qrCode || null,
+        upiString: uroPayData?.upiString || null,
+        // Fallback payment link
+        paymentLink: "https://urpy.link/NaggUR",
       };
     } catch (err) {
       fastify.log.error(err);
