@@ -5,6 +5,7 @@ import helmet from "@fastify/helmet";
 import jwt from "@fastify/jwt";
 import { registerRoutes } from "../routes";
 import dbPlugin from "../plugins/db";
+import subscriptionGuard from "../plugins/subscription-guard";
 
 const fastify = Fastify({
   logger: {
@@ -33,6 +34,9 @@ async function bootstrap() {
     await fastify.register(jwt, {
       secret: process.env.JWT_SECRET || "super-secret-key",
     });
+
+    // Subscription guard (blocks write ops on expired subscriptions)
+    await fastify.register(subscriptionGuard);
 
     // Routes
     await fastify.register(registerRoutes, { prefix: "/api" });

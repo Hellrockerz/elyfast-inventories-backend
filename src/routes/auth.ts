@@ -18,7 +18,12 @@ export async function authRoutes(fastify: FastifyInstance) {
           shopId: shop[0].uuid || shop[0].id.toString(), // Return UUID for frontend consistency
           serverId: shop[0].id,
           shopName: shop[0].name,
-          ownerName: shop[0].ownerName 
+          ownerName: shop[0].ownerName,
+          // Subscription info
+          subscriptionStatus: shop[0].subscriptionStatus,
+          subscriptionValidUntil: shop[0].subscriptionValidUntil,
+          planType: shop[0].planType,
+          trialUsed: shop[0].trialUsed,
         };
       }
       
