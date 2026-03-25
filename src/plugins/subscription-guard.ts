@@ -3,6 +3,8 @@ import fp from "fastify-plugin";
 import { db } from "../database";
 import { shops } from "../database/schema";
 import { eq } from "drizzle-orm";
+import { auth } from "../services/firebase";
+
 
 /**
  * Subscription Guard Middleware
@@ -44,6 +46,21 @@ async function subscriptionGuard(fastify: FastifyInstance) {
     if (!shopUuid) {
       // If no shopId in request, skip this guard (let the route handle validation)
       return;
+    }
+
+    // Check if requester is an admin
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.split("Bearer ")[1];
+        const decoded = await auth.verifyIdToken(token);
+        if (decoded.admin) {
+          return; // Skip subscription check for admins
+        }
+      } catch (err) {
+        // Log token verification error but continue with subscription check
+        fastify.log.debug("Failed to verify token in subscription guard: " + (err as any).message);
+      }
     }
 
     try {

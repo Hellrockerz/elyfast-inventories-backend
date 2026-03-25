@@ -32,7 +32,7 @@ async function bootstrap() {
     await fastify.register(helmet);
     await fastify.register(dbPlugin);
     await fastify.register(jwt, {
-      secret: process.env.JWT_SECRET || "super-secret-key",
+      secret: process.env.JWT_SECRET || "OINeadasdf90ajs!$%edxsd",
     });
 
     // Subscription guard (blocks write ops on expired subscriptions)
