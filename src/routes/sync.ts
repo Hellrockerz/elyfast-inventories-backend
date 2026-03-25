@@ -62,7 +62,27 @@ export async function syncRoutes(fastify: FastifyInstance) {
       // Basic idempotency check using the client UUID
       const existing = await fastify.db.select().from(syncLogs).where(eq(syncLogs.resourceId, uuid)).limit(1);
       if (existing.length > 0) {
-        return { status: "already_synced", id: uuid };
+        let serverId: number | undefined;
+        const resType = existing[0].resourceType;
+        
+        // Try to find the actual server-side integer ID of the resource
+        try {
+          if (resType === 'items') {
+            // For items, the resourceId is usually the UUID
+            const item = await fastify.db.select().from(items).where(eq(items.uuid, uuid)).limit(1);
+            serverId = item[0]?.id;
+          } else if (resType === 'invoices') {
+            const invoice = await fastify.db.select().from(invoices).where(eq(invoices.uuid, uuid)).limit(1);
+            serverId = invoice[0]?.id;
+          } else if (resType === 'stock_movements') {
+            const movement = await fastify.db.select().from(stockMovements).where(eq(stockMovements.uuid, uuid)).limit(1);
+            serverId = movement[0]?.id;
+          }
+        } catch (err) {
+          fastify.log.error(err, "Failed to fetch serverId for already_synced operation");
+        }
+
+        return { status: "already_synced", id: uuid, serverId };
       }
 
       let serverId: number | undefined;

@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
-import { syncRoutes } from "./sync";
+import { syncRoutes } from "../modules/sync/sync.routes";
+import { productRoutes } from "../modules/products/products.routes";
 import { authRoutes } from "./auth";
 import { subscriptionRoutes } from "./subscription";
 import { paymentRoutes } from "./payment";
@@ -22,6 +23,9 @@ export async function registerRoutes(fastify: FastifyInstance) {
   // Admin panel (exempt from subscription guard, uses its own Firebase auth)
   await fastify.register(adminRoutes, { prefix: "/admin" });
 
+  // Modular Routes
+  await fastify.register(productRoutes, { prefix: "/products" });
+  
   // Sync (protected by subscription guard for write operations)
   await fastify.register(syncRoutes, { prefix: "/sync" });
 }
